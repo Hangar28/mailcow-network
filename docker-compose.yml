@@ -388,77 +388,77 @@ services:
           aliases:
             - memcached
 
-nginx-mailcow:
-  image: ghcr.io/mailcow/nginx:1.03
-  depends_on:
-    - redis-mailcow
-    - php-fpm-mailcow
-    - sogo-mailcow
-    - rspamd-mailcow
-  environment:
-    - TZ=${TZ}
-    - MAILCOW_HOSTNAME=${MAILCOW_HOSTNAME}
-  volumes:
-    - ./data/web:/web:ro,z
-    - ./data/assets/ssl/:/etc/ssl/mail/:ro,z
-  ports:
-    - "80:80"
-    - "443:443"
-    - "25:25"
-    - "465:465"
-    - "587:587"
-    - "993:993"
-    - "995:995"
-  restart: always
-  networks:
-    mailcow-network:
-      aliases:
-        - nginx
-    documents_lan:
-      ipv4_address: 10.10.128.16
-      mac_address: 02:42:0a:0a:80:16
-
-    acme-mailcow:
+    nginx-mailcow:
+      image: ghcr.io/mailcow/nginx:1.03
       depends_on:
-        nginx-mailcow:
-          condition: service_started
-        unbound-mailcow:
-          condition: service_healthy
-      image: ghcr.io/mailcow/acme:1.93
-      dns:
-        - ${IPV4_NETWORK:-172.22.1}.254
+        - redis-mailcow
+        - php-fpm-mailcow
+        - sogo-mailcow
+        - rspamd-mailcow
       environment:
-        - LOG_LINES=${LOG_LINES:-9999}
-        - ADDITIONAL_SAN=${ADDITIONAL_SAN}
-        - AUTODISCOVER_SAN=${AUTODISCOVER_SAN:-y}
-        - MAILCOW_HOSTNAME=${MAILCOW_HOSTNAME}
-        - DBNAME=${DBNAME}
-        - DBUSER=${DBUSER}
-        - DBPASS=${DBPASS}
-        - SKIP_LETS_ENCRYPT=${SKIP_LETS_ENCRYPT:-n}
-        - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-mailcow-dockerized}
-        - DIRECTORY_URL=${DIRECTORY_URL:-}
-        - ENABLE_SSL_SNI=${ENABLE_SSL_SNI:-n}
-        - SKIP_IP_CHECK=${SKIP_IP_CHECK:-n}
-        - SKIP_HTTP_VERIFICATION=${SKIP_HTTP_VERIFICATION:-n}
-        - ONLY_MAILCOW_HOSTNAME=${ONLY_MAILCOW_HOSTNAME:-n}
-        - LE_STAGING=${LE_STAGING:-n}
         - TZ=${TZ}
-        - REDIS_SLAVEOF_IP=${REDIS_SLAVEOF_IP:-}
-        - REDIS_SLAVEOF_PORT=${REDIS_SLAVEOF_PORT:-}
-        - REDISPASS=${REDISPASS}
-        - SNAT_TO_SOURCE=${SNAT_TO_SOURCE:-n}
-        - SNAT6_TO_SOURCE=${SNAT6_TO_SOURCE:-n}
+        - MAILCOW_HOSTNAME=${MAILCOW_HOSTNAME}
       volumes:
-        - ./data/web/.well-known/acme-challenge:/var/www/acme:z
-        - ./data/assets/ssl:/var/lib/acme/:z
-        - ./data/assets/ssl-example:/var/lib/ssl-example/:ro,Z
-        - mysql-socket-vol-1:/var/run/mysqld/:z
+        - ./data/web:/web:ro,z
+        - ./data/assets/ssl/:/etc/ssl/mail/:ro,z
+      ports:
+        - "80:80"
+        - "443:443"
+        - "25:25"
+        - "465:465"
+        - "587:587"
+        - "993:993"
+        - "995:995"
       restart: always
       networks:
         mailcow-network:
           aliases:
-            - acme
+            - nginx
+        documents_lan:
+          ipv4_address: 10.10.128.16
+          mac_address: 02:42:0a:0a:80:16
+    
+        acme-mailcow:
+          depends_on:
+            nginx-mailcow:
+              condition: service_started
+            unbound-mailcow:
+              condition: service_healthy
+          image: ghcr.io/mailcow/acme:1.93
+          dns:
+            - ${IPV4_NETWORK:-172.22.1}.254
+          environment:
+            - LOG_LINES=${LOG_LINES:-9999}
+            - ADDITIONAL_SAN=${ADDITIONAL_SAN}
+            - AUTODISCOVER_SAN=${AUTODISCOVER_SAN:-y}
+            - MAILCOW_HOSTNAME=${MAILCOW_HOSTNAME}
+            - DBNAME=${DBNAME}
+            - DBUSER=${DBUSER}
+            - DBPASS=${DBPASS}
+            - SKIP_LETS_ENCRYPT=${SKIP_LETS_ENCRYPT:-n}
+            - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-mailcow-dockerized}
+            - DIRECTORY_URL=${DIRECTORY_URL:-}
+            - ENABLE_SSL_SNI=${ENABLE_SSL_SNI:-n}
+            - SKIP_IP_CHECK=${SKIP_IP_CHECK:-n}
+            - SKIP_HTTP_VERIFICATION=${SKIP_HTTP_VERIFICATION:-n}
+            - ONLY_MAILCOW_HOSTNAME=${ONLY_MAILCOW_HOSTNAME:-n}
+            - LE_STAGING=${LE_STAGING:-n}
+            - TZ=${TZ}
+            - REDIS_SLAVEOF_IP=${REDIS_SLAVEOF_IP:-}
+            - REDIS_SLAVEOF_PORT=${REDIS_SLAVEOF_PORT:-}
+            - REDISPASS=${REDISPASS}
+            - SNAT_TO_SOURCE=${SNAT_TO_SOURCE:-n}
+            - SNAT6_TO_SOURCE=${SNAT6_TO_SOURCE:-n}
+          volumes:
+            - ./data/web/.well-known/acme-challenge:/var/www/acme:z
+            - ./data/assets/ssl:/var/lib/acme/:z
+            - ./data/assets/ssl-example:/var/lib/ssl-example/:ro,Z
+            - mysql-socket-vol-1:/var/run/mysqld/:z
+          restart: always
+          networks:
+            mailcow-network:
+              aliases:
+                - acme
 
     netfilter-mailcow:
       image: ghcr.io/mailcow/netfilter:1.61
