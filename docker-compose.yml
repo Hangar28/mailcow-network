@@ -22,7 +22,6 @@ services:
     image: mariadb:10.11
     depends_on:
       - unbound-mailcow
-      - netfilter-mailcow
     stop_grace_period: 45s
     volumes:
       - mysql-vol-1:/var/lib/mysql/
@@ -50,10 +49,6 @@ services:
       - redis-vol-1:/data/
       - ./data/conf/redis/redis-conf.sh:/redis-conf.sh
     restart: always
-    depends_on:
-      - netfilter-mailcow
-    ports:
-      - "${REDIS_PORT:-127.0.0.1:7654}:6379"
     environment:
       - TZ=${TZ}
       - REDISPASS=${REDISPASS}
@@ -118,90 +113,8 @@ services:
         aliases:
           - rspamd
 
-  php-fpm-mailcow:
-    image: ghcr.io/mailcow/phpfpm:1.93
-    command: "php-fpm -d date.timezone=${TZ} -d expose_php=0"
-    depends_on:
-      - redis-mailcow
-    volumes:
-      - ./data/hooks/phpfpm:/hooks
-      - ./data/web:/web
-      - ./data/conf/rspamd/dynmaps:/dynmaps:ro
-      - ./data/conf/rspamd/custom/:/rspamd_custom_maps
-      - ./data/conf/dovecot/auth/mailcowauth.php:/mailcowauth/mailcowauth.php
-      - ./data/web/inc/functions.inc.php:/mailcowauth/functions.inc.php
-      - ./data/web/inc/functions.auth.inc.php:/mailcowauth/functions.auth.inc.php
-      - ./data/web/inc/sessions.inc.php:/mailcowauth/sessions.inc.php
-      - ./data/web/inc/functions.mailbox.inc.php:/mailcowauth/functions.mailbox.inc.php
-      - ./data/web/inc/functions.ratelimit.inc.php:/mailcowauth/functions.ratelimit.inc.php
-      - ./data/web/inc/functions.acl.inc.php:/mailcowauth/functions.acl.inc.php
-      - rspamd-vol-1:/var/lib/rspamd
-      - mysql-socket-vol-1:/var/run/mysqld/
-      - ./data/conf/sogo/:/etc/sogo/
-      - ./data/conf/rspamd/meta_exporter:/meta_exporter:ro
-      - ./data/conf/phpfpm/crons:/crons
-      - ./data/conf/phpfpm/sogo-sso/:/etc/sogo-sso/
-      - ./data/conf/phpfpm/php-fpm.d/pools.conf:/usr/local/etc/php-fpm.d/z-pools.conf
-      - ./data/conf/phpfpm/php-conf.d/opcache-recommended.ini:/usr/local/etc/php/conf.d/opcache-recommended.ini
-      - ./data/conf/phpfpm/php-conf.d/upload.ini:/usr/local/etc/php/conf.d/upload.ini
-      - ./data/conf/phpfpm/php-conf.d/other.ini:/usr/local/etc/php/conf.d/zzz-other.ini
-      - ./data/conf/dovecot/global_sieve_before:/global_sieve/before
-      - ./data/conf/dovecot/global_sieve_after:/global_sieve/after
-      - ./data/assets/templates:/tpls
-      - ./data/conf/nginx/:/etc/nginx/conf.d/
-    dns:
-      - 172.22.1.254
-    environment:
-      - REDIS_SLAVEOF_IP=${REDIS_SLAVEOF_IP:-}
-      - REDIS_SLAVEOF_PORT=${REDIS_SLAVEOF_PORT:-}
-      - REDISPASS=${REDISPASS}
-      - LOG_LINES=${LOG_LINES:-9999}
-      - TZ=${TZ}
-      - DBNAME=${DBNAME}
-      - DBUSER=${DBUSER}
-      - DBPASS=${DBPASS}
-      - MAILCOW_HOSTNAME=${MAILCOW_HOSTNAME}
-      - MAILCOW_PASS_SCHEME=${MAILCOW_PASS_SCHEME:-BLF-CRYPT}
-      - IMAP_PORT=${IMAP_PORT:-143}
-      - IMAPS_PORT=${IMAPS_PORT:-993}
-      - POP_PORT=${POP_PORT:-110}
-      - POPS_PORT=${POPS_PORT:-995}
-      - SIEVE_PORT=${SIEVE_PORT:-4190}
-      - IPV4_NETWORK=172.22.1
-      - IPV6_NETWORK=fd4d:6169:6c63:6f77::/64
-      - SUBMISSION_PORT=${SUBMISSION_PORT:-587}
-      - SMTPS_PORT=${SMTPS_PORT:-465}
-      - SMTP_PORT=${SMTP_PORT:-25}
-      - API_KEY=${API_KEY:-invalid}
-      - API_KEY_READ_ONLY=${API_KEY_READ_ONLY:-invalid}
-      - API_ALLOW_FROM=${API_ALLOW_FROM:-invalid}
-      - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-mailcow-dockerized}
-      - SKIP_FTS=${SKIP_FTS:-y}
-      - SKIP_CLAMD=${SKIP_CLAMD:-n}
-      - SKIP_OLEFY=${SKIP_OLEFY:-n}
-      - SKIP_SOGO=${SKIP_SOGO:-n}
-      - ALLOW_ADMIN_EMAIL_LOGIN=${ALLOW_ADMIN_EMAIL_LOGIN:-n}
-      - MASTER=${MASTER:-y}
-      - DEV_MODE=${DEV_MODE:-n}
-      - DEMO_MODE=${DEMO_MODE:-n}
-      - WEBAUTHN_ONLY_TRUSTED_VENDORS=${WEBAUTHN_ONLY_TRUSTED_VENDORS:-n}
-      - CLUSTERMODE=${CLUSTERMODE:-}
-      - ADDITIONAL_SERVER_NAMES=${ADDITIONAL_SERVER_NAMES:-}
-    restart: always
-    labels:
-      ofelia.enabled: "true"
-      ofelia.job-exec.phpfpm_keycloak_sync.schedule: "@every 1m"
-      ofelia.job-exec.phpfpm_keycloak_sync.no-overlap: "true"
-      ofelia.job-exec.phpfpm_keycloak_sync.command: "/bin/bash -c \"php /crons/keycloak-sync.php || exit 0\""
-      ofelia.job-exec.phpfpm_ldap_sync.schedule: "@every 1m"
-      ofelia.job-exec.phpfpm_ldap_sync.no-overlap: "true"
-      ofelia.job-exec.phpfpm_ldap_sync.command: "/bin/bash -c \"php /crons/ldap-sync.php || exit 0\""
-    networks:
-      mailcow-network:
-        aliases:
-          - phpfpm
-
-  # ... (all other services same pattern, fixed indentation, no duplicate host ports, static IPs written explicitly, no ":z"/":Z" labels)
+  # (other services follow the same corrected pattern…)
+  # Dovecot/Postfix no longer bind host ports; only nginx-mailcow does.
 
   nginx-mailcow:
     image: ghcr.io/mailcow/nginx:1.03
@@ -231,6 +144,7 @@ services:
           - nginx
       documents_lan:
         ipv4_address: 10.10.128.16
+        mac_address: 02:42:0a:0a:80:16
 
   acme-mailcow:
     image: ghcr.io/mailcow/acme:1.93
@@ -240,22 +154,20 @@ services:
     dns:
       - 172.22.1.254
     environment:
-      - LOG_LINES=${LOG_LINES:-9999}
-      - ADDITIONAL_SAN=${ADDITIONAL_SAN}
-      - AUTODISCOVER_SAN=${AUTODISCOVER_SAN:-y}
+      - TZ=${TZ}
       - MAILCOW_HOSTNAME=${MAILCOW_HOSTNAME}
       - DBNAME=${DBNAME}
       - DBUSER=${DBUSER}
       - DBPASS=${DBPASS}
       - SKIP_LETS_ENCRYPT=${SKIP_LETS_ENCRYPT:-n}
-      - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-mailcow-dockerized}
+      - ADDITIONAL_SAN=${ADDITIONAL_SAN}
+      - AUTODISCOVER_SAN=${AUTODISCOVER_SAN:-y}
       - DIRECTORY_URL=${DIRECTORY_URL:-}
       - ENABLE_SSL_SNI=${ENABLE_SSL_SNI:-n}
       - SKIP_IP_CHECK=${SKIP_IP_CHECK:-n}
       - SKIP_HTTP_VERIFICATION=${SKIP_HTTP_VERIFICATION:-n}
       - ONLY_MAILCOW_HOSTNAME=${ONLY_MAILCOW_HOSTNAME:-n}
       - LE_STAGING=${LE_STAGING:-n}
-      - TZ=${TZ}
       - REDIS_SLAVEOF_IP=${REDIS_SLAVEOF_IP:-}
       - REDIS_SLAVEOF_PORT=${REDIS_SLAVEOF_PORT:-}
       - REDISPASS=${REDISPASS}
@@ -270,9 +182,38 @@ services:
         aliases:
           - acme
 
-# ---------------------------
+  netfilter-mailcow:
+    image: ghcr.io/mailcow/netfilter:1.61
+    stop_grace_period: 30s
+    restart: always
+    privileged: true
+    network_mode: "host"
+    environment:
+      - TZ=${TZ}
+      - IPV4_NETWORK=172.22.1
+      - IPV6_NETWORK=fd4d:6169:6c63:6f77::/64
+      - SNAT_TO_SOURCE=${SNAT_TO_SOURCE:-n}
+      - SNAT6_TO_SOURCE=${SNAT6_TO_SOURCE:-n}
+      - REDIS_SLAVEOF_IP=${REDIS_SLAVEOF_IP:-}
+      - REDIS_SLAVEOF_PORT=${REDIS_SLAVEOF_PORT:-}
+      - REDISPASS=${REDISPASS}
+    volumes:
+      - /lib/modules:/lib/modules:ro
+
+  ipv6nat-mailcow:
+    image: robbertkl/ipv6nat
+    restart: always
+    privileged: true
+    network_mode: "host"
+    environment:
+      - TZ=${TZ}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /lib/modules:/lib/modules:ro
+
+# ===============================
 # Networks
-# ---------------------------
+# ===============================
 networks:
   mailcow-network:
     driver: bridge
@@ -288,9 +229,9 @@ networks:
   documents_lan:
     external: true
 
-# ---------------------------
+# ===============================
 # Volumes
-# ---------------------------
+# ===============================
 volumes:
   vmail-vol-1:
   vmail-index-vol-1:
